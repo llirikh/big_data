@@ -1,0 +1,41 @@
+---
+- name: Install controller dependencies on jumpnode
+  hosts: jumpnode
+  gather_facts: false
+  tasks:
+    - name: Install python3-passlib (required for password_hash filter)
+      become: true
+      ansible.builtin.apt:
+        name: python3-passlib
+        state: present
+        update_cache: yes
+
+- name: Prepare /etc/hosts on all hosts
+  hosts: jumpnode:cluster
+  gather_facts: false
+  roles:
+    - common
+
+- name: Create hadoop user and ssh-access of ubuntu user between hosts
+  hosts: cluster
+  gather_facts: false
+  roles:
+    - hadoop_user
+
+- name: Set up Hadoop
+  hosts: cluster
+  gather_facts: false
+  roles:
+    - hadoop_install
+
+- name: Configure Hadoop
+  hosts: cluster
+  gather_facts: false
+  roles:
+    - hadoop_config
+
+- name: Start Hadoop-cluster
+  hosts: cluster
+  gather_facts: false
+  roles:
+    - hadoop_start

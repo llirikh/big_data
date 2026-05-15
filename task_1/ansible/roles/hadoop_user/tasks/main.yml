@@ -1,0 +1,50 @@
+---
+- name: Create hadoop group
+  become: true
+  ansible.builtin.group:
+    name: "{{ hadoop_group }}"
+    state: present
+
+- name: Create hadoop user
+  become: true
+  ansible.builtin.user:
+    name: "{{ hadoop_user }}"
+    group: "{{ hadoop_group }}"
+    password: "{{ hadoop_password | password_hash('sha512') }}"
+    shell: /bin/bash
+    create_home: yes
+    state: present
+
+- name: Check for /home/ubuntu/.ssh
+  become: true
+  become_user: ubuntu
+  ansible.builtin.file:
+    path: /home/ubuntu/.ssh
+    state: directory
+    mode: '0700'
+
+- name: Generate ssh-hey for ubuntu user
+  delegate_to: team-02-jn
+  run_once: true
+  become: true
+  become_user: ubuntu
+  ansible.builtin.openssh_keypair:
+    path: /home/ubuntu/.ssh/id_ed25519
+    type: ed25519
+
+- name: Read ubuntu pub-key 
+  delegate_to: team-02-jn
+  run_once: true
+  become: true
+  become_user: ubuntu
+  ansible.builtin.slurp:
+    src: /home/ubuntu/.ssh/id_ed25519.pub
+  register: ubuntu_pubkey
+
+- name: Place ubutnu pub-key to other hosts
+  become: true
+  become_user: ubuntu
+  ansible.posix.authorized_key:
+    user: ubuntu
+    key: "{{ ubuntu_pubkey.content | b64decode }}"
+    state: present

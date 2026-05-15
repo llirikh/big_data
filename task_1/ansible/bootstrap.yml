@@ -1,0 +1,47 @@
+---
+- name: Prepare ssh-key on JumpNode
+  hosts: jumpnode
+  gather_facts: false
+  tasks:
+
+    - name: Check sshpass is installed
+      become: true
+      ansible.builtin.apt:
+        name: sshpass
+        state: present
+        update_cache: yes
+
+    - name: Generate ed25519 key for ubuntu user
+      ansible.builtin.openssh_keypair:
+        path: /home/ubuntu/.ssh/id_ed25519
+        type: ed25519
+
+    - name: Read pub-key
+      ansible.builtin.slurp:
+        src: /home/ubuntu/.ssh/id_ed25519.pub
+      register: jn_pubkey
+
+    - name: Add pub-key to authorized_keys
+      ansible.posix.authorized_key:
+        user: ubuntu
+        key: "{{ jn_pubkey.content | b64decode }}"
+        state: present
+
+- name: Copy authorized_keys to other nodes
+  hosts: cluster
+  gather_facts: false
+  vars_prompt:
+    - name: ubuntu_password
+      prompt: "Password for user 'ubuntu' on cluster nodes"
+      private: true
+  tasks:
+
+    - name: scp authorized_keys to {{ inventory_hostname }}
+      delegate_to: team-02-jn
+      ansible.builtin.shell: |
+        sshpass -p "{{ ubuntu_password }}" \
+          scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+              /home/ubuntu/.ssh/authorized_keys \
+              ubuntu@{{ ansible_host }}:/home/ubuntu/.ssh/authorized_keys
+      no_log: true
+      changed_when: true

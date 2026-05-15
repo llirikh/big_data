@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!-- Managed by Ansible -->
+<configuration>
+  <property>
+    <name>fs.defaultFS</name>
+    <value>hdfs://{{ hdfs_namenode_host }}:{{ hdfs_namenode_port }}</value>
+  </property>
+</configuration>

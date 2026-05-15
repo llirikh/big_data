@@ -1,0 +1,21 @@
+---
+hadoop_version: "3.4.0"
+hadoop_archive: "hadoop-{{ hadoop_version }}.tar.gz"
+hadoop_url: "https://dlcdn.apache.org/hadoop/common/hadoop-{{ hadoop_version }}/{{ hadoop_archive }}"
+
+hadoop_user: hadoop
+hadoop_group: hadoop
+
+hadoop_home: "/home/{{ hadoop_user }}/hadoop-{{ hadoop_version }}"
+
+java_home: /usr/lib/jvm/java-8-openjdk-amd64
+
+hdfs_namenode_host: team-02-nn
+hdfs_namenode_port: 9000
+hdfs_replication: 3
+
+cluster_hosts:
+  - { ip: 192.168.10.57, name: team-02-jn }
+  - { ip: 192.168.10.13, name: team-02-nn }
+  - { ip: 192.168.10.11, name: team-02-dn-00 }
+  - { ip: 192.168.10.12, name: team-02-dn-01 }

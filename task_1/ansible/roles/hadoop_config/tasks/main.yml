@@ -1,0 +1,33 @@
+---
+
+- name: Copy hadoop-env.sh
+  become: true
+  become_user: "{{ hadoop_user }}"
+  ansible.builtin.template:
+    src: hadoop-env.sh.j2
+    dest: "{{ hadoop_home }}/etc/hadoop/hadoop-env.sh"
+    mode: '0644'
+
+- name: Copy core-site.xml
+  become: true
+  become_user: "{{ hadoop_user }}"
+  ansible.builtin.template:
+    src: core-site.xml.j2
+    dest: "{{ hadoop_home }}/etc/hadoop/core-site.xml"
+    mode: '0644'
+
+- name: Copy hdfs-site.xml
+  become: true
+  become_user: "{{ hadoop_user }}"
+  ansible.builtin.template:
+    src: hdfs-site.xml.j2
+    dest: "{{ hadoop_home }}/etc/hadoop/hdfs-site.xml"
+    mode: '0644'
+
+- name: Copy workers
+  become: true
+  become_user: "{{ hadoop_user }}"
+  ansible.builtin.template:
+    src: workers.j2
+    dest: "{{ hadoop_home }}/etc/hadoop/workers"
+    mode: '0644'

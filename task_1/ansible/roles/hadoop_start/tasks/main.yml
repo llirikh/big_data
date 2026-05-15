@@ -1,0 +1,132 @@
+---
+- name: Ensure /home/hadoop/.ssh exists on all hosts
+  become: true
+  become_user: "{{ hadoop_user }}"
+  ansible.builtin.file:
+    path: "/home/{{ hadoop_user }}/.ssh"
+    state: directory
+    mode: '0700'
+
+- name: Create ssh-key for hadoop on NameNode
+  delegate_to: "{{ groups['namenode'][0] }}"
+  run_once: true
+  become: true
+  become_user: "{{ hadoop_user }}"
+  ansible.builtin.openssh_keypair:
+    path: "/home/{{ hadoop_user }}/.ssh/id_ed25519"
+    type: ed25519
+
+- name: Read hadoop pub-key from NameNode
+  delegate_to: "{{ groups['namenode'][0] }}"
+  run_once: true
+  become: true
+  become_user: "{{ hadoop_user }}"
+  ansible.builtin.slurp:
+    src: "/home/{{ hadoop_user }}/.ssh/id_ed25519.pub"
+  register: hadoop_pubkey
+
+- name: Read hadoop private-key from NameNode
+  delegate_to: "{{ groups['namenode'][0] }}"
+  run_once: true
+  become: true
+  become_user: "{{ hadoop_user }}"
+  ansible.builtin.slurp:
+    src: "/home/{{ hadoop_user }}/.ssh/id_ed25519"
+  register: hadoop_privkey
+
+- name: Check for /home/hadoop/.ssh on all hosts
+  become: true
+  become_user: "{{ hadoop_user }}"
+  ansible.builtin.file:
+    path: "/home/{{ hadoop_user }}/.ssh"
+    state: directory
+    mode: '0700'
+
+- name: Place hadoop private-key to all hosts
+  become: true
+  become_user: "{{ hadoop_user }}"
+  ansible.builtin.copy:
+    content: "{{ hadoop_privkey.content | b64decode }}"
+    dest: "/home/{{ hadoop_user }}/.ssh/id_ed25519"
+    mode: '0600'
+
+- name: Place hadoop public-key to all hosts
+  become: true
+  become_user: "{{ hadoop_user }}"
+  ansible.builtin.copy:
+    content: "{{ hadoop_pubkey.content | b64decode }}"
+    dest: "/home/{{ hadoop_user }}/.ssh/id_ed25519.pub"
+    mode: '0644'
+
+- name: Add hadoop pub-key to authorized_keys on all hosts
+  become: true
+  become_user: "{{ hadoop_user }}"
+  ansible.posix.authorized_key:
+    user: "{{ hadoop_user }}"
+    key: "{{ hadoop_pubkey.content | b64decode }}"
+    state: present
+
+- name: Update known_hosts for hadoop user (keyscan)
+  delegate_to: "{{ groups['namenode'][0] }}"
+  run_once: true
+  become: true
+  become_user: "{{ hadoop_user }}"
+  ansible.builtin.shell: |
+    ssh-keyscan -H {{ item }} >> /home/{{ hadoop_user }}/.ssh/known_hosts 2>/dev/null || true
+  args:
+    creates: "/home/{{ hadoop_user }}/.ssh/known_hosts.done.{{ item }}"
+  loop: "{{ groups['workers'] }}"
+
+- name: Update known_hosts for hadoop user (mark done)
+  delegate_to: "{{ groups['namenode'][0] }}"
+  run_once: true
+  become: true
+  become_user: "{{ hadoop_user }}"
+  ansible.builtin.file:
+    path: "/home/{{ hadoop_user }}/.ssh/known_hosts.done.{{ item }}"
+    state: touch
+  loop: "{{ groups['workers'] }}"
+
+- name: Check whether NameNode is already formatted
+  delegate_to: "{{ groups['namenode'][0] }}"
+  run_once: true
+  become: true
+  become_user: "{{ hadoop_user }}"
+  ansible.builtin.stat:
+    path: "/tmp/hadoop-{{ hadoop_user }}/dfs/name/current/VERSION"
+  register: namenode_formatted
+
+- name: Format NameNode
+  delegate_to: "{{ groups['namenode'][0] }}"
+  run_once: true
+  become: true
+  become_user: "{{ hadoop_user }}"
+  ansible.builtin.shell: |
+    {{ hadoop_home }}/bin/hdfs namenode -format -nonInteractive -force
+  environment:
+    JAVA_HOME: "{{ java_home }}"
+  when: not namenode_formatted.stat.exists
+
+- name: Start HDFS
+  delegate_to: "{{ groups['namenode'][0] }}"
+  run_once: true
+  become: true
+  become_user: "{{ hadoop_user }}"
+  ansible.builtin.shell: |
+    {{ hadoop_home }}/sbin/start-dfs.sh
+  environment:
+    JAVA_HOME: "{{ java_home }}"
+    HADOOP_HOME: "{{ hadoop_home }}"
+  register: start_dfs
+  changed_when: "'starting' in start_dfs.stdout or 'Starting' in start_dfs.stdout"
+
+- name: Check all services
+  become: true
+  become_user: "{{ hadoop_user }}"
+  ansible.builtin.shell: "{{ java_home }}/bin/jps"
+  register: jps_out
+  changed_when: false
+
+- name: Show services on hosts
+  ansible.builtin.debug:
+    msg: "{{ inventory_hostname }}: {{ jps_out.stdout_lines }}"

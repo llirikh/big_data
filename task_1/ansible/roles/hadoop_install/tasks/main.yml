@@ -1,0 +1,70 @@
+---
+- name: Check whether Hadoop archive is already on JumpNode
+  delegate_to: team-02-jn
+  run_once: true
+  ansible.builtin.stat:
+    path: "/home/ubuntu/{{ hadoop_archive }}"
+  register: jn_archive
+
+- name: Download Hadoop {{ hadoop_version }} archive on JumpNode
+  delegate_to: team-02-jn
+  run_once: true
+  ansible.builtin.get_url:
+    url: "{{ hadoop_url }}"
+    dest: "/home/ubuntu/{{ hadoop_archive }}"
+    mode: '0644'
+  when: not jn_archive.stat.exists
+
+- name: Check whether Hadoop is already installed on this node
+  become: true
+  ansible.builtin.stat:
+    path: "{{ hadoop_home }}/bin/hadoop"
+  register: hadoop_bin
+
+- name: Check whether archive is already on this cluster node
+  become: true
+  ansible.builtin.stat:
+    path: "/home/{{ hadoop_user }}/{{ hadoop_archive }}"
+  register: node_archive
+  when: not hadoop_bin.stat.exists
+
+- name: scp archive from JumpNode to {{ inventory_hostname }}
+  delegate_to: team-02-jn
+  ansible.builtin.command: >
+    scp -o StrictHostKeyChecking=no
+        /home/ubuntu/{{ hadoop_archive }}
+        ubuntu@{{ ansible_host }}:/home/ubuntu/{{ hadoop_archive }}
+  when:
+    - not hadoop_bin.stat.exists
+    - not (node_archive.stat.exists | default(false))
+  changed_when: true
+
+- name: Move archive into /home/{{ hadoop_user }} and reassign ownership
+  become: true
+  ansible.builtin.shell: |
+    mv /home/ubuntu/{{ hadoop_archive }} /home/{{ hadoop_user }}/{{ hadoop_archive }}
+    chown {{ hadoop_user }}:{{ hadoop_group }} /home/{{ hadoop_user }}/{{ hadoop_archive }}
+  args:
+    creates: "/home/{{ hadoop_user }}/{{ hadoop_archive }}"
+  when: not hadoop_bin.stat.exists
+
+- name: Extract Hadoop archive on {{ inventory_hostname }}
+  become: true
+  become_user: "{{ hadoop_user }}"
+  ansible.builtin.unarchive:
+    src: "/home/{{ hadoop_user }}/{{ hadoop_archive }}"
+    dest: "/home/{{ hadoop_user }}/"
+    remote_src: yes
+    creates: "{{ hadoop_home }}/bin/hadoop"
+
+- name: Write JAVA_HOME / HADOOP_HOME / PATH into ~/.profile
+  become: true
+  become_user: "{{ hadoop_user }}"
+  ansible.builtin.blockinfile:
+    path: "/home/{{ hadoop_user }}/.profile"
+    create: yes
+    marker: "# {mark} HADOOP ENV"
+    block: |
+      export JAVA_HOME={{ java_home }}
+      export HADOOP_HOME={{ hadoop_home }}
+      export PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin
