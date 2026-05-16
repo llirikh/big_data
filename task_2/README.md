@@ -4,11 +4,9 @@
 
 | Хост            | Сервисы YARN                          |
 |-----------------|---------------------------------------|
-| `team-02-nn`    | `ResourceManager`, `JobHistoryServer` |
+| `team-02-nn`    | `ResourceManager`, `JobHistoryServer`, `NodeManager` |
 | `team-02-dn-00` | `NodeManager`                         |
 | `team-02-dn-01` | `NodeManager`                         |
-| `team-02-nn`    | `NodeManager`  |
-
 ## Структура каталога
 
 ```
@@ -130,14 +128,15 @@ JumpNode не имеет ключа к hadoop-пользователю на но
 На каждой ноде запускается `jps` от имени `hadoop`. Ожидаем увидеть:
 - `team-02-nn`: `NameNode`, `SecondaryNameNode`, `DataNode`,
   `ResourceManager`, `NodeManager`, `JobHistoryServer`
-- `team-02-dn-0X`: `DataNode`, `NodeManager`
+- `team-02-dn-00`: `DataNode`, `NodeManager`
+- `team-02-dn-01`: `DataNode`, `NodeManager`
 
 #### 6. Подсказка по туннелям
-Печатает готовую `ssh -L ...` команду для проброса UI-портов
+Печатает информацию о пробросе UI-портов
 
 ## Идемпотентность
 
 Скрипт можно запускать повторно:
-- конфиги перезаписываются `install`-ом (атомарная замена)
+- конфиги перезаписываются
 - `start-yarn.sh` корректно отрабатывает, если демоны уже запущены
 - `historyserver` сначала останавливается, потом запускается заново
