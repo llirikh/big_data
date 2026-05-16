@@ -1,3 +1,6 @@
 task_1/ansible/group_vars/all/secrets.yml
+
 task_2/secrets/secrets.sh
-*.retry
+
+task_3/secrets/secrets.sh
+task_3/test/*
